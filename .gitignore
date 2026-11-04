@@ -1,0 +1,36 @@
+# .NET build
+**/bin/
+**/obj/
+
+# Environment variables
+**/.env
+.env
+.env.*
+!.env.example
+
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+
+# Local folders and generated code
+bin/
+data/
+downloads/
+go/internal/pb
+logs/
+storage/
+users/
+java/out/
+java/lib/
+java/build/
+javacode/
+
+# Logs
+*.log
+
