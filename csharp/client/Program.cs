@@ -20,7 +20,7 @@ public class Client
         .CreateLogger();
         try
         {
-            Env.TraversePath().Load();
+            Env.TraversePath().Load(); // Para "subir" os níveis dos diretórios até encontrar
 
             using GrpcChannel channel = CreateChannel();
             var client = new MovieService.MovieServiceClient(channel);

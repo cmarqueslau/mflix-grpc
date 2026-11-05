@@ -5,13 +5,15 @@
 */
 
 using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;      // RpcException, Status, StatusCode, ServerCallContext, IServerStreamWriter
-using Mflix;          // Movie, GetMovieRequest, MovieService... (gerados do .proto)
-using MongoDB.Bson;   // ObjectId.TryParse
-using Serilog;        // Log
+using Grpc.Core;  
+using Mflix;        
+using MongoDB.Bson; 
+using Serilog;        
 
 public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieServiceBase
 {
+    // Conexão entre a requisição de obtenção do filme "GetMovieRequest" (que informa o id do filme a ser buscado)
+    // e a efetiva chamada da função do repositório responsável por devolver um filme com base no ID
     public override async Task<Movie> GetMovie(GetMovieRequest request, ServerCallContext context)
     {
         Log.Information("Comando recebido: consultar filme {Id}", request.Id);
@@ -23,6 +25,8 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
         return movie;
     }
 
+    // Conexão entre a requisição de criação de filme "CreateMovieRequest" e a efetiva chamada da função
+    // responsável por isso no repositório
     public override async Task<Movie> CreateMovie(CreateMovieRequest request, ServerCallContext context)
     {
         Log.Information("Comando recebido: criar filme");
@@ -35,6 +39,8 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
         return createdMovie;
     }
 
+    // Conexão entre a requisição recebida de deletar um filme ("DeleteMovieRequest") e
+    // a efetiva chamada da função de deleção do repositório
     public override async Task<Empty> DeleteMovie(DeleteMovieRequest request, ServerCallContext context)
     {
         Log.Information("Comando recebido: deletar o filme com id {Id}", request.Id);
@@ -51,6 +57,8 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
         return new Empty();
     }
 
+    // Conexão entre a requisição recebida de atualização de filme ("UpdateMovieRequest") e
+    // a efetiva chamada  da função de atualização de um filme do repositório
     public override async Task<Movie> UpdateMovie(UpdateMovieRequest request, ServerCallContext context)
     {
         if (request.Movie is null || string.IsNullOrWhiteSpace(request.Movie.Title))
@@ -64,6 +72,7 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
         return movie;
     }
 
+    // Recebe a requisição de listar por ator e aciona a função do repositório correspondente
     public override async Task ListByActor(
         ListByActorRequest request,
         IServerStreamWriter<Movie> responseStream,
@@ -83,6 +92,7 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
         Log.Information("Enviados {Count} filmes do ator {Actor}", movies.Count, request.Actor);
     }
 
+    // Recebe a requisição de listar por gênero e aciona a função correspondente no repositório
     public override async Task ListByGenre(
         ListByGenreRequest request,
         IServerStreamWriter<Movie> responseStream,

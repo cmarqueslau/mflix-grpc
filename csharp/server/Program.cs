@@ -4,11 +4,11 @@
    Arquivo de conexão com o servidor
 */
 
-using System.Net;                                  // IPAddress
+using System.Net;                          
 using Mflix;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;    // HttpProtocols
+using Microsoft.AspNetCore.Server.Kestrel.Core;   
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -24,7 +24,6 @@ string collectionName = Environment.GetEnvironmentVariable("MONGODB_COLLECTION")
     ?? throw new InvalidOperationException("MONGODB_COLLECTION não configurada.");
 
 Log.Logger = new LoggerConfiguration()
-// para diferenciar os clientes
 .WriteTo.Console()
 .CreateLogger();
 
@@ -47,7 +46,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Listen(ipAddress!, port, listen => listen.Protocols = HttpProtocols.Http2);
-});
+}); // Estabelece a porta, o IP de escuta e o protocolo como HTTP
 
 builder.Services.AddGrpc();
 builder.Services.AddSingleton(new MongoConnection(mongoUri, databaseName, collectionName));

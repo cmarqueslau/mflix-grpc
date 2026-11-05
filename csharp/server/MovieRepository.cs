@@ -29,7 +29,7 @@ public class MovieRepository(MongoConnection connection)
         return ToMovie(document);
     }
 
-    private static int ReadYear(BsonDocument document)
+    private static int ReadYear(BsonDocument document) // Função auxiliar para validação do tipo de "ano"
     {
         if (!document.TryGetValue("year", out var value))
             return 0;
@@ -37,8 +37,8 @@ public class MovieRepository(MongoConnection connection)
         if (value.IsInt32)
             return value.AsInt32;
 
-        if (value.IsString &&
-            int.TryParse(value.AsString, out int year))
+        if (value.IsString && 
+            int.TryParse(value.AsString, out int year)) // Utilizado em razão de resgistros que continham números e letras no ano
         {
             return year;
         }
