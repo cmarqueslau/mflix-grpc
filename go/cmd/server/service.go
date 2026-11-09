@@ -9,239 +9,171 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
 	"log"
-	"net"
-	"time"
 
 	"mflix/internal/pb"
-	"mflix/internal/protocol"
 	"mflix/internal/repository"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type Session struct {
-	conn  net.Conn
-	proto *protocol.Protocol
-	repo  *repository.MovieRepository
+type MovieService struct {
+	pb.UnimplementedMovieServiceServer
+	repo *repository.MovieRepository
 }
 
-// Session constructor
-func NewSession(conn net.Conn, repo *repository.MovieRepository) *Session {
-	return &Session{
-		conn:  conn,
-		proto: protocol.NewProtocol(conn),
-		repo:  repo,
+// MovieService constructor
+func NewMovieService(repo *repository.MovieRepository) *MovieService {
+	return &MovieService{
+		repo: repo,
 	}
 }
 
-// Reads requests until the client disconnects
-func (s *Session) handleConnection() {
-	defer s.conn.Close()
-	log.Printf("Client connected: %s", s.conn.RemoteAddr())
+// Handles CreateMovie
+func (s *MovieService) CreateMovie(ctx context.Context, req *pb.CreateMovieRequest) (*pb.Movie, error) {
+	logRemoteCall(ctx, "CREATE")
 
-	for {
-		var req pb.Request
+	m := req.GetMovie()
 
-		if err := s.proto.ReadMessage(&req); err != nil {
-			if err != io.EOF {
-				log.Printf("Read error from %s: %s", s.conn.RemoteAddr(), err)
-			}
-
-			log.Printf("Connection finished: %s", s.conn.RemoteAddr())
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		s.HandleCommand(ctx, &req)
-		cancel()
-	}
-}
-
-// Dispatches the request to the appropriate handler
-func (s *Session) HandleCommand(ctx context.Context, req *pb.Request) {
-	switch cmd := req.Command.(type) {
-	case *pb.Request_Create:
-		s.Create(ctx, cmd.Create.GetMovie())
-		s.serverLog("CREATE")
-
-	case *pb.Request_Get:
-		s.Get(ctx, cmd.Get.GetId())
-		s.serverLog("GET")
-
-	case *pb.Request_Update:
-		s.Update(ctx, cmd.Update.GetMovie())
-		s.serverLog("UPDATE")
-
-	case *pb.Request_Delete:
-		s.Delete(ctx, cmd.Delete.GetId())
-		s.serverLog("DELETE")
-
-	case *pb.Request_ListByActor:
-		s.ListByActor(ctx, cmd.ListByActor.GetActor())
-		s.serverLog("LIST_BY_ACTOR")
-
-	case *pb.Request_ListByGenre:
-		s.ListByGenre(ctx, cmd.ListByGenre.GetGenre())
-		s.serverLog("LIST_BY_GENRE")
-
-	default:
-		s.sendError(pb.Status_INVALID_ARGUMENT, "no command set")
-		s.serverLog("UNKNOWN")
-	}
-}
-
-// Handles CREATE
-func (s *Session) Create(ctx context.Context, m *pb.Movie) {
 	if m == nil || m.Title == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "title is required")
-		return
+		return nil, status.Error(codes.InvalidArgument, "Title is requierd")
 	}
 
 	created, err := s.repo.Create(ctx, m)
 
 	if err != nil {
-		s.sendRepositoryError(err)
-		return
+		return nil, toGrpcStatus(err)
 	}
 
-	s.sendMovie(created)
+	return created, nil
 }
 
-// Handles GET
-func (s *Session) Get(ctx context.Context, id string) {
-	if id == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "id is empty")
-		return
+// Handles GetMovie
+func (s *MovieService) GetMovie(ctx context.Context, req *pb.GetMovieRequest) (*pb.Movie, error) {
+	logRemoteCall(ctx, "GET")
+
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Id is empty")
 	}
 
-	movie, err := s.repo.Get(ctx, id)
+	movie, err := s.repo.Get(ctx, req.Id)
 
 	if err != nil {
-		s.sendRepositoryError(err)
-		return
+		return nil, toGrpcStatus(err)
 	}
 
-	s.sendMovie(movie)
+	return movie, nil
 }
 
-// Handles UPDATE
-func (s *Session) Update(ctx context.Context, m *pb.Movie) {
+// Handles UpdateMovie
+func (s *MovieService) UpdateMovie(ctx context.Context, req *pb.UpdateMovieRequest) (*pb.Movie, error) {
+	logRemoteCall(ctx, "UPDATE")
+
+	m := req.GetMovie()
+
 	if m == nil || m.Id == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "id is empty")
-		return
+		return nil, status.Error(codes.InvalidArgument, "Id is empty")
 	}
 
 	if m.Title == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "title is required")
-		return
+		return nil, status.Error(codes.InvalidArgument, "Title is empty")
 	}
 
 	updated, err := s.repo.Update(ctx, m)
 
 	if err != nil {
-		s.sendRepositoryError(err)
-		return
+		return nil, toGrpcStatus(err)
 	}
 
-	s.sendMovie(updated)
+	return updated, nil
 }
 
-// Handles DELETE
-func (s *Session) Delete(ctx context.Context, id string) {
-	if id == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "id is empty")
-		return
+// Handles DeleteMovie
+func (s *MovieService) DeleteMovie(ctx context.Context, req *pb.DeleteMovieRequest) (*emptypb.Empty, error) {
+	logRemoteCall(ctx, "DELETE")
+
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Id is empty")
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
-		s.sendRepositoryError(err)
-		return
+	if err := s.repo.Delete(ctx, req.Id); err != nil {
+		return nil, toGrpcStatus(err)
 	}
 
-	s.send(&pb.Response{Status: pb.Status_OK})
+	return &emptypb.Empty{}, nil
 }
 
-// Handles LIST_BY_ACTOR
-func (s *Session) ListByActor(ctx context.Context, actor string) {
-	if actor == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "actor is empty")
-		return
+// Handles ListByActor
+func (s *MovieService) ListByActor(req *pb.ListByActorRequest, stream grpc.ServerStreamingServer[pb.Movie]) error {
+	logRemoteCall(stream.Context(), "LIST_BY_ACTOR")
+
+	if req.GetActor() == "" {
+		return status.Error(codes.InvalidArgument, "Actor is empty")
 	}
 
-	movies, err := s.repo.ListByActor(ctx, actor)
+	movies, err := s.repo.ListByActor(stream.Context(), req.Actor)
 
 	if err != nil {
-		s.sendRepositoryError(err)
-		return
+		return toGrpcStatus(err)
 	}
 
-	s.sendMovies(movies)
+	return sendMovies(stream, movies)
 }
 
-// Handles LIST_BY_GENRE
-func (s *Session) ListByGenre(ctx context.Context, genre string) {
-	if genre == "" {
-		s.sendError(pb.Status_INVALID_ARGUMENT, "genre is empty")
-		return
+// Handles ListByGente
+func (s *MovieService) ListByGenre(req *pb.ListByGenreRequest, stream grpc.ServerStreamingServer[pb.Movie]) error {
+	logRemoteCall(stream.Context(), "LIST_BY_GENRE")
+
+	if req.GetGenre() == "" {
+		return status.Error(codes.InvalidArgument, "Genre is empty")
 	}
 
-	movies, err := s.repo.ListByGenre(ctx, genre)
+	movies, err := s.repo.ListByGenre(stream.Context(), req.Genre)
 
 	if err != nil {
-		s.sendRepositoryError(err)
-		return
+		return toGrpcStatus(err)
 	}
 
-	s.sendMovies(movies)
+	return sendMovies(stream, movies)
 }
 
-// Writes a response to the client
-func (s *Session) send(resp *pb.Response) {
-	if err := s.proto.WriteMessage(resp); err != nil {
-		log.Printf("Error sending response: %s", err)
+// Helper to send movies in a stream
+func sendMovies(stream grpc.ServerStreamingServer[pb.Movie], movies []*pb.Movie) error {
+	for _, m := range movies {
+		if err := stream.Send(m); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-// Helper for sending a single movie
-func (s *Session) sendMovie(m *pb.Movie) {
-	s.send(&pb.Response{
-		Status:  pb.Status_OK,
-		Payload: &pb.Response_Movie{Movie: m},
-	})
-}
-
-// Helper for sending movies
-func (s *Session) sendMovies(ms []*pb.Movie) {
-	s.send(&pb.Response{
-		Status:  pb.Status_OK,
-		Payload: &pb.Response_Movies{Movies: &pb.MovieList{Movies: ms}},
-	})
-}
-
-// Helper for sending errors
-func (s *Session) sendError(status pb.Status, msg string) {
-	s.send(&pb.Response{
-		Status:       status,
-		ErrorMessage: msg,
-	})
-}
-
-// Converts a repo error into a status for the client
-func (s *Session) sendRepositoryError(err error) {
+// Converts a repository error into a gRPC status
+func toGrpcStatus(err error) error {
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
-		s.sendError(pb.Status_NOT_FOUND, err.Error())
+		return status.Error(codes.NotFound, err.Error())
 
 	case errors.Is(err, repository.ErrInvalidID):
-		s.sendError(pb.Status_INVALID_ARGUMENT, err.Error())
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
 		log.Printf("Internal error: %s", err)
-		s.sendError(pb.Status_INTERNAL_ERROR, "internal error")
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 
 // Logs every executed command
-func (s *Session) serverLog(command string) {
-	log.Printf("client %s executed %s\n", s.conn.RemoteAddr(), command)
+func logRemoteCall(ctx context.Context, command string) {
+	addr := "unidentified"
+
+	if p, ok := peer.FromContext(ctx); ok {
+		addr = p.Addr.String()
+	}
+
+	log.Printf("client %s executed %s\n", addr, command)
 }
