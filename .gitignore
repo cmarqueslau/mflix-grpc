@@ -30,6 +30,7 @@ java/out/
 java/lib/
 java/build/
 javacode/
+java/generated
 
 # Logs
 *.log
