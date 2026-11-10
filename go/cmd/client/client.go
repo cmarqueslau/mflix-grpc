@@ -1,5 +1,5 @@
 /*
-   Data de criação: 27/10/2026
+   Data de criação: 10/11/2026
    Estudante: Gustavo Martins França
    Definição do cliente
 */
@@ -8,21 +8,27 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"log"
-	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"mflix/internal/pb"
-	"mflix/internal/protocol"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type Client struct {
 	addr        string
-	conn        net.Conn
-	proto       *protocol.Protocol
+	conn        *grpc.ClientConn
+	rpc         pb.MovieServiceClient
 	inputReader *bufio.Reader
 }
 
@@ -36,14 +42,16 @@ func NewClient(addr string) *Client {
 // Connects a client to a server
 func (c *Client) Connect() error {
 	var err error
-	c.conn, err = net.Dial("tcp", c.addr)
+
+	// A new client needs gRPC credentials
+	c.conn, err = grpc.NewClient(c.addr, grpc.WithTransportCredentials((insecure.NewCredentials())))
 
 	if err != nil {
 		return err
 	}
 
 	c.inputReader = bufio.NewReader(os.Stdin)
-	c.proto = protocol.NewProtocol(c.conn)
+	c.rpc = pb.NewMovieServiceClient(c.conn)
 
 	fmt.Printf("Connected on %s\n", c.addr)
 	return nil
@@ -88,7 +96,7 @@ func (c *Client) Run() {
 			return
 
 		default:
-			fmt.Println("Invalid option")
+			fmt.Println("\nInvalid option\n")
 		}
 
 		if err != nil {
@@ -125,39 +133,32 @@ func (c *Client) Create() error {
 		Type:      "movie",
 	}
 
-	res, err := c.sendRequest(
-		&pb.Request{
-			Command: &pb.Request_Create{
-				Create: &pb.CreateMovieRequest{
-					Movie: m,
-				},
-			},
-		},
-	)
+	ctx, cancel := remoteCallCtx()
 
-	if err != nil || !checkStatus(res) {
-		return err
+	defer cancel()
+
+	created, err := c.rpc.CreateMovie(ctx, &pb.CreateMovieRequest{Movie: m})
+
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
 	fmt.Println("Filme criado:")
-	printMovie(res.GetMovie())
+	printMovie(created)
 	return nil
 }
 
 // Handles option 2
 func (c *Client) Delete() error {
-	res, err := c.sendRequest(
-		&pb.Request{
-			Command: &pb.Request_Delete{
-				Delete: &pb.DeleteMovieRequest{
-					Id: c.prompt("ID"),
-				},
-			},
-		},
-	)
+	id := c.prompt("ID")
 
-	if err != nil || !checkStatus(res) {
-		return err
+	ctx, cancel := remoteCallCtx()
+	defer cancel()
+
+	_, err := c.rpc.DeleteMovie(ctx, &pb.DeleteMovieRequest{Id: id})
+
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
 	fmt.Println("Filme removido")
@@ -168,21 +169,15 @@ func (c *Client) Delete() error {
 func (c *Client) Update() error {
 	id := c.prompt("ID do filme")
 
-	res, err := c.sendRequest(
-		&pb.Request{
-			Command: &pb.Request_Get{
-				Get: &pb.GetMovieRequest{
-					Id: id,
-				},
-			},
-		},
-	)
+	// Context for GetMovie() is separated from context for UpdateMovie() to avoid timeouts during prompts
+	ctx, cancel := remoteCallCtx()
+	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: id})
+	cancel()
 
-	if err != nil || !checkStatus(res) {
-		return err
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
-	m := res.GetMovie()
 	fmt.Println("(Enter mantém o valor atual)")
 
 	if s := c.prompt("Título [" + m.Title + "]"); s != "" {
@@ -209,91 +204,74 @@ func (c *Client) Update() error {
 		m.Year = toInt32(s)
 	}
 
-	res, err = c.sendRequest(&pb.Request{
-		Command: &pb.Request_Update{Update: &pb.UpdateMovieRequest{Movie: m}},
-	})
+	ctx, cancel = remoteCallCtx()
 
-	if err != nil || !checkStatus(res) {
-		return err
+	defer cancel()
+
+	updated, err := c.rpc.UpdateMovie(ctx, &pb.UpdateMovieRequest{Movie: m})
+
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
 	fmt.Println("Filme atualizado:")
-	printMovie(res.GetMovie())
+	printMovie(updated)
 	return nil
 }
 
 // Handles option 4
 func (c *Client) Get() error {
-	res, err := c.sendRequest(
-		&pb.Request{
-			Command: &pb.Request_Get{
-				Get: &pb.GetMovieRequest{
-					Id: c.prompt("ID"),
-				},
-			},
-		},
-	)
+	ctx, cancel := remoteCallCtx()
+	defer cancel()
 
-	if err != nil || !checkStatus(res) {
-		return err
+	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: c.prompt("ID")})
+
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
-	printMovie(res.GetMovie())
+	printMovie(m)
 	return nil
 }
 
 // Handles option 5
 func (c *Client) ListByActor() error {
-	res, err := c.sendRequest(&pb.Request{
-		Command: &pb.Request_ListByActor{
-			ListByActor: &pb.ListByActorRequest{
-				Actor: c.prompt("Nome do ator"),
-			},
-		},
-	},
-	)
+	ctx, cancel := remoteCallCtx()
+	defer cancel()
 
-	if err != nil || !checkStatus(res) {
-		return err
+	stream, err := c.rpc.ListByActor(ctx, &pb.ListByActorRequest{Actor: c.prompt("Nome do ator")})
+
+	if err != nil {
+		return c.handleServerError(err)
 	}
 
-	printMovies(res.GetMovies().GetMovies()) // protoc generated two functions with the same name
-	return nil
+	return c.printMovieStream(stream)
 }
 
 // Handles option 6
 func (c *Client) ListByGenre() error {
-	res, err := c.sendRequest(
-		&pb.Request{
-			Command: &pb.Request_ListByGenre{
-				ListByGenre: &pb.ListByGenreRequest{
-					Genre: c.prompt("Categoria"),
-				},
-			},
-		},
-	)
+	ctx, cancel := remoteCallCtx()
+	defer cancel()
 
-	if err != nil || !checkStatus(res) {
+	stream, err := c.rpc.ListByGenre(ctx, &pb.ListByGenreRequest{Genre: c.prompt("Categoria")})
+
+	if err != nil {
+		return c.handleServerError(err)
+	}
+
+	return c.printMovieStream(stream)
+}
+
+// Handles errors sent by the server
+func (c *Client) handleServerError(err error) error {
+	st, _ := status.FromError(err)
+
+	if st.Code() == codes.Unavailable {
 		return err
 	}
 
-	printMovies(res.GetMovies().GetMovies())
+	fmt.Printf("\nError %s: %s\n\n", st.Code(), st.Message())
 	return nil
-}
-
-// Sends a request and waits for its resonse
-func (c *Client) sendRequest(req *pb.Request) (*pb.Response, error) {
-	if err := c.proto.WriteMessage(req); err != nil {
-		return nil, fmt.Errorf("Error sending request: %w", err)
-	}
-
-	var res pb.Response
-
-	if err := c.proto.ReadMessage(&res); err != nil {
-		return nil, fmt.Errorf("Error eading response: %w", err)
-	}
-
-	return &res, nil
 }
 
 // Prompts the user for an option and returns the trimmed line
@@ -307,4 +285,31 @@ func (c *Client) prompt(in string) string {
 	}
 
 	return strings.TrimSpace(str)
+}
+
+// Reads every movie from a stream until the server finishes it
+func (c *Client) printMovieStream(stream grpc.ServerStreamingClient[pb.Movie]) error {
+	var movies []*pb.Movie
+
+	for {
+		m, err := stream.Recv()
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return c.handleServerError(err)
+		}
+
+		movies = append(movies, m)
+	}
+
+	printMovies(movies)
+	return nil
+}
+
+// Helper to use context with timeout
+func remoteCallCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 10*time.Second)
 }

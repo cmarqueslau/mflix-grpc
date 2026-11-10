@@ -1,5 +1,5 @@
 /*
-   Data de criação: 27/10/2026
+   Data de criação: 10/11/2026
    Estudante: Gustavo Martins França
    Utilidades do cliente
 */
@@ -12,16 +12,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// Returns true when the server status is OK; otherwise prints the error
-func checkStatus(resp *pb.Response) bool {
-	if resp.Status != pb.Status_OK {
-		fmt.Printf("Erro [%s]: %s\n", resp.Status, resp.ErrorMessage)
-		return false
-	}
-
-	return true
-}
 
 // Splits a comma separated list into it's tokens
 func splitList(s string) []string {
