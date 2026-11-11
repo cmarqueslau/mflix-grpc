@@ -10,9 +10,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Properties;
 
-/**
- * Lê as configurações do arquivo .env.
- */
+/* Lê as configurações do arquivo .env. */
 public class Config {
 
     private final Properties properties = new Properties();
@@ -57,17 +55,17 @@ public class Config {
         return Integer.parseInt(parts[1]);
     }
 
-    /** Devolve a URI de conexão com o MongoDB. */
+    /* Devolve a URI de conexão com o MongoDB. */
     public String getMongoUri() {
         return get("MONGODB_URI", "mongodb://localhost:27017");
     }
 
-    /** Devolve o nome do banco de dados. */
+    /* Devolve o nome do banco de dados. */
     public String getMongoDb() {
         return get("MONGODB_DB", "sample_mflix");
     }
 
-    /** Devolve o nome da coleção de filmes. */
+    /* Devolve o nome da coleção de filmes. */
     public String getMongoCollection() {
         return get("MONGODB_COLLECTION", "movies");
     }

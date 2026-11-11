@@ -27,13 +27,13 @@ import mflix.Movie;
 import mflix.MovieServiceGrpc;
 import mflix.UpdateMovieRequest;
 
-/** Clase cliente exibe o menu e chama o servidor via gRPC. */
+/* Clase cliente exibe o menu e chama o servidor via gRPC. */
 public class Client {
 
     private static final int DEADLINE_SECONDS = 10;
     private static Scanner reader = new Scanner(System.in);
 
-    /** Cria o canal gRPC e executa o laço do menu até o usuário escolher sair. */
+    /* Cria o canal gRPC e executa o laço do menu até o usuário escolher sair. */
     public static void main(String[] args) {
         Config config = new Config(".env");
 
@@ -68,7 +68,7 @@ public class Client {
         }
     }
 
-    /** Encerra o canal gRPC, esperando até 3 segundos pelas chamadas em andamento. */
+    /* Encerra o canal gRPC, esperando até 3 segundos pelas chamadas em andamento. */
     private static void shutdown(ManagedChannel channel) {
         try {
             channel.shutdown().awaitTermination(3, TimeUnit.SECONDS);
@@ -78,14 +78,12 @@ public class Client {
         }
     }
 
-    /**
-     * Devolve um stub com deadline por chamada, para o cliente não ficar bloqueado se o servidor não responder.
-     */
+    /* Devolve um stub com deadline por chamada, para o cliente não ficar bloqueado se o servidor não responder. */
     private static MovieServiceGrpc.MovieServiceBlockingStub withDeadline(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         return stub.withDeadlineAfter(DEADLINE_SECONDS, TimeUnit.SECONDS);
     }
 
-    /** Exibe o menu de opções. */
+    /* Exibe o menu de opções. */
     private static void showMenu() {
         String rule = Style.BOLD + Style.BLUE + "============================" + Style.RESET;
 
@@ -101,12 +99,12 @@ public class Client {
         Style.printLine(rule);
     }
 
-    /** Imprime uma opção do menu, com o número destacado. */
+    /* Imprime uma opção do menu, com o número destacado. */
     private static void menuItem(String number, String label) {
         Style.printLine(Style.MAGENTA + Style.BOLD + number + "." + Style.RESET + " " + label);
     }
 
-    /** Mostra o rótulo como prompt, lê uma linha do teclado e devolve o texto sem espaços. */
+    /* Mostra o rótulo como prompt, lê uma linha do teclado e devolve o texto sem espaços. */
     private static String ask(String label) {
         Style.currentPrompt = Style.prompt(label);
         System.out.print(Style.currentPrompt);
@@ -116,9 +114,7 @@ public class Client {
         return line;
     }
 
-    /**
-     * Chama o método da operação correspondente à opção escolhida. Falhas de RPC chegam com StatusRuntimeException.
-     */
+    /* Chama o método da operação correspondente à opção escolhida. Falhas de RPC chegam com StatusRuntimeException. */
     private static void execute(String option, MovieServiceGrpc.MovieServiceBlockingStub stub) {
         switch (option) {
             case "1":
@@ -191,7 +187,7 @@ public class Client {
         showMovieList(movies);
     }
 
-    /** Opção de listar filmes por gênero: lê o gênero, recebe os filmes por streaming e exibe a lista. */
+    /* Opção de listar filmes por gênero: lê o gênero, recebe os filmes por streaming e exibe a lista. */
     private static void listByGenre(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         Style.showInfo("Opção selecionada: pesquisar por gênero.");
         String genre = ask("Digite o gênero dos filmes: ");
@@ -221,7 +217,7 @@ public class Client {
         return movie.build();
     }
 
-    /** Separa o texto por vírgula, remove espaços e ignora itens vazios. */
+    /* Separa o texto por vírgula, remove espaços e ignora itens vazios. */
     private static List<String> splitList(String text) {
         List<String> items = new ArrayList<>();
 

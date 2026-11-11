@@ -9,7 +9,7 @@ package common;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-/** Cores ANSI e funções de apoio para a saída estilizada no terminal. */
+/* Cores ANSI e funções de apoio para a saída estilizada no terminal. */
 public final class Style {
 
     public static final String RESET = "\033[0m";
@@ -57,12 +57,12 @@ public final class Style {
         log(RED, "ERR", RED + text + RESET);
     }
 
-    /** Monta um prompt colorido; o texto digitado pelo usuário continua na cor padrão. */
+    /* Monta um prompt colorido; o texto digitado pelo usuário continua na cor padrão. */
     public static String prompt(String label) {
         return BLUE + BOLD + label + RESET;
     }
 
-    /** Imprime um campo no formato "Rótulo:     valor", com os valores alinhados. */
+    /* Imprime um campo no formato "Rótulo:     valor", com os valores alinhados. */
     public static void field(String label, String value) {
         String text = value.isEmpty() ? "—" : value;
         printLine(GRAY + String.format("%-15s", label + ":") + RESET + text);
