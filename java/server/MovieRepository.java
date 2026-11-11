@@ -24,8 +24,6 @@ import org.bson.types.ObjectId;
 /* Classe responsável pelas operações de filmes no MongoDB. */
 public class MovieRepository {
 
-    private static final int LIST_LIMIT = 50;
-
     private final MongoCollection<Document> collection;
 
     /* Conecta ao banco e seleciona a coleção de filmes. */
@@ -117,10 +115,9 @@ public class MovieRepository {
         return findByField("genres", genre);
     }
 
-    /* Busca filmes pelo campo informado, com limite de resultados. */
+    /* Busca filmes pelo campo informado. */
     private List<Movie> findByField(String field, String value) {
         List<Document> docs = collection.find(Filters.eq(field, value))
-                .limit(LIST_LIMIT)
                 .into(new ArrayList<Document>());
 
         List<Movie> movies = new ArrayList<>();
