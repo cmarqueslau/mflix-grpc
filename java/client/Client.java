@@ -201,7 +201,6 @@ public class Client {
         movie.setFullplot(ask("Sinopse completa: "));
         movie.setRated(ask("Classificação: "));
         movie.setType(ask("Tipo (ex.: movie): "));
-        movie.setReleased(ask("Lançamento: "));
         movie.setRuntime(readInt("Duração (min): "));
         movie.setYear(readInt("Ano: "));
         movie.addAllGenres(splitList(ask("Categorias (separe por vírgula): ")));
