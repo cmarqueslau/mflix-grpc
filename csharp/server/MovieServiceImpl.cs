@@ -101,13 +101,13 @@ public class MovieServiceImpl(MovieRepository repository) : MovieService.MovieSe
     {
         if (string.IsNullOrWhiteSpace(request.Genre))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "O nome do gênero não pode ser vazio."));
-        Log.Information("Comando recebido: listar filmes do ator {Actor}", request.Genre);
+        Log.Information("Comando recebido: listar filmes do gênero {Genre}", request.Genre);
         List<Movie> movies = await repository.ListByGenre(request.Genre);
         foreach (Movie movie in movies)
         {
             await responseStream.WriteAsync(movie);
         }
 
-        Log.Information("Enviados {Count} filmes do gênero {Actor}", movies.Count, request.Genre);
+        Log.Information("Enviados {Count} filmes do gênero {Genre}", movies.Count, request.Genre);
     }
 }
