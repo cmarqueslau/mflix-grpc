@@ -50,7 +50,7 @@ public class Client {
                 String option = ask("Escolha uma opção: ");
 
                 if (option.equals("0")) {
-                    Style.showInfo("Encerrando o cliente...");
+                    Style.showInfo("Encerrando o cliente. Até logo!");
                     break;
                 }
 
@@ -153,11 +153,13 @@ public class Client {
         showSingleMovie(movie);
     }
 
-    /* Opção de atualizar filme: lê o id e os novos dados, chama UpdateMovie e exibe o filme atualizado. */
+    /* Opção de atualizar filme: lê o id, busca o filme atual, pede os novos dados (Enter mantém o valor atual) e chama UpdateMovie. */
     private static void updateMovie(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         Style.showInfo("Opção selecionada: atualizar filme.");
         String id = ask("Digite o ID do filme: ");
-        UpdateMovieRequest request = UpdateMovieRequest.newBuilder().setMovie(readMovie(id)).build();
+        Movie current = stub.getMovie(GetMovieRequest.newBuilder().setId(id).build());
+        Style.showInfo("Pressione Enter para manter o valor atual de cada campo.");
+        UpdateMovieRequest request = UpdateMovieRequest.newBuilder().setMovie(readMovieUpdate(current)).build();
         Movie updated = stub.updateMovie(request);
         Style.showSuccess("Filme atualizado com sucesso.");
         showSingleMovie(updated);
@@ -230,6 +232,65 @@ public class Client {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    /* Lê os campos de um filme existente: Enter mantém o valor atual. Os campos não exibidos (id, comentários) são copiados do filme atual. */
+    private static Movie readMovieUpdate(Movie current) {
+        Movie.Builder movie = current.toBuilder();
+        movie.setTitle(askText("Título", current.getTitle()));
+        movie.setPlot(askText("Sinopse", current.getPlot()));
+        movie.setFullplot(askText("Sinopse completa", current.getFullplot()));
+        movie.setRated(askText("Classificação", current.getRated()));
+        movie.setType(askText("Tipo", current.getType()));
+        movie.setReleased(askText("Lançamento", current.getReleased()));
+        movie.setRuntime(askInt("Duração (min)", current.getRuntime()));
+        movie.setYear(askInt("Ano", current.getYear()));
+        movie.clearGenres().addAllGenres(askList("Categorias", current.getGenresList()));
+        movie.clearCast().addAllCast(askList("Elenco", current.getCastList()));
+        movie.clearDirectors().addAllDirectors(askList("Diretores", current.getDirectorsList()));
+        movie.clearCountries().addAllCountries(askList("Países", current.getCountriesList()));
+        return movie.build();
+    }
+
+    /* Lê um texto mostrando o valor atual entre colchetes; Enter mantém o valor atual. */
+    private static String askText(String label, String current) {
+        String text = ask(label + " [" + preview(current) + "]: ");
+        if (text.isEmpty()) {
+            return current;
+        }
+        return text;
+    }
+
+    /* Lê um inteiro mostrando o valor atual; Enter mantém o valor atual e uma entrada inválida repete a pergunta. */
+    private static int askInt(String label, int current) {
+        while (true) {
+            String text = ask(label + " [" + current + "]: ");
+            if (text.isEmpty()) {
+                return current;
+            }
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException e) {
+                Style.showWarning("Digite apenas números inteiros (ex.: 200).");
+            }
+        }
+    }
+
+    /* Lê uma lista separada por vírgula mostrando a lista atual; Enter mantém a lista atual. */
+    private static List<String> askList(String label, List<String> current) {
+        String text = ask(label + " (separe por vírgula) [" + preview(String.join(", ", current)) + "]: ");
+        if (text.isEmpty()) {
+            return current;
+        }
+        return splitList(text);
+    }
+
+    /* Encurta textos longos para exibi-los dentro do prompt. */
+    private static String preview(String text) {
+        if (text.length() > 60) {
+            return text.substring(0, 57) + "...";
+        }
+        return text;
     }
 
     /* Traduz o status de erro do gRPC para uma mensagem amigável. */
