@@ -30,7 +30,6 @@ import mflix.UpdateMovieRequest;
 /* Clase cliente exibe o menu e chama o servidor via gRPC. */
 public class Client {
 
-    private static final int DEADLINE_SECONDS = 10;
     private static Scanner reader = new Scanner(System.in);
 
     /* Cria o canal gRPC e executa o laço do menu até o usuário escolher sair. */
@@ -76,11 +75,6 @@ public class Client {
             channel.shutdownNow();
             Thread.currentThread().interrupt();
         }
-    }
-
-    /* Devolve um stub com deadline por chamada, para o cliente não ficar bloqueado se o servidor não responder. */
-    private static MovieServiceGrpc.MovieServiceBlockingStub withDeadline(MovieServiceGrpc.MovieServiceBlockingStub stub) {
-        return stub.withDeadlineAfter(DEADLINE_SECONDS, TimeUnit.SECONDS);
     }
 
     /* Exibe o menu de opções. */
@@ -146,7 +140,7 @@ public class Client {
     private static void createMovie(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         Style.showInfo("Opção selecionada: criar filme.");
         CreateMovieRequest request = CreateMovieRequest.newBuilder().setMovie(readMovie("")).build();
-        Movie created = withDeadline(stub).createMovie(request);
+        Movie created = stub.createMovie(request);
         Style.showSuccess("Filme criado com sucesso.");
         showSingleMovie(created);
     }
@@ -155,7 +149,7 @@ public class Client {
     private static void getMovie(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         Style.showInfo("Opção selecionada: consultar filme por ID.");
         String id = ask("Digite o ID do filme: ");
-        Movie movie = withDeadline(stub).getMovie(GetMovieRequest.newBuilder().setId(id).build());
+        Movie movie = stub.getMovie(GetMovieRequest.newBuilder().setId(id).build());
         showSingleMovie(movie);
     }
 
@@ -164,7 +158,7 @@ public class Client {
         Style.showInfo("Opção selecionada: atualizar filme.");
         String id = ask("Digite o ID do filme: ");
         UpdateMovieRequest request = UpdateMovieRequest.newBuilder().setMovie(readMovie(id)).build();
-        Movie updated = withDeadline(stub).updateMovie(request);
+        Movie updated = stub.updateMovie(request);
         Style.showSuccess("Filme atualizado com sucesso.");
         showSingleMovie(updated);
     }
@@ -173,7 +167,7 @@ public class Client {
     private static void deleteMovie(MovieServiceGrpc.MovieServiceBlockingStub stub) {
         Style.showInfo("Opção selecionada: excluir filme.");
         String id = ask("Digite o ID do filme: ");
-        withDeadline(stub).deleteMovie(DeleteMovieRequest.newBuilder().setId(id).build());
+        stub.deleteMovie(DeleteMovieRequest.newBuilder().setId(id).build());
         Style.showSuccess("Filme excluído com sucesso.");
     }
 
@@ -182,7 +176,7 @@ public class Client {
         Style.showInfo("Opção selecionada: pesquisar por ator.");
         String actor = ask("Digite o nome do ator: ");
         List<Movie> movies = new ArrayList<>();
-        withDeadline(stub).listByActor(ListByActorRequest.newBuilder().setActor(actor).build())
+        stub.listByActor(ListByActorRequest.newBuilder().setActor(actor).build())
                 .forEachRemaining(movies::add);
         showMovieList(movies);
     }
@@ -193,7 +187,7 @@ public class Client {
         String genre = ask("Digite o gênero dos filmes: ");
         List<Movie> movies = new ArrayList<>();
 
-        withDeadline(stub).listByGenre(ListByGenreRequest.newBuilder().setGenre(genre).build())
+        stub.listByGenre(ListByGenreRequest.newBuilder().setGenre(genre).build())
                 .forEachRemaining(movies::add);
         showMovieList(movies);
     }
@@ -245,8 +239,6 @@ public class Client {
         Status.Code code = e.getStatus().getCode();
         if (code == Status.Code.UNAVAILABLE) {
             Style.showError("Servidor indisponível.");
-        } else if (code == Status.Code.DEADLINE_EXCEEDED) {
-            Style.showError("O servidor demorou demais para responder.");
         } else {
             Style.showError(code + ": " + e.getStatus().getDescription());
         }
