@@ -50,7 +50,7 @@ public class Client {
                 String option = ask("Escolha uma opção: ");
 
                 if (option.equals("0")) {
-                    Style.showInfo("Encerrando o cliente. Até logo!");
+                    Style.showInfo("Encerrando o cliente...");
                     break;
                 }
 
