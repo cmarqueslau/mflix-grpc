@@ -13,7 +13,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -180,28 +179,44 @@ func (c *Client) Update() error {
 
 	fmt.Println("(Enter mantém o valor atual)")
 
-	if s := c.prompt("Título [" + m.Title + "]"); s != "" {
+	if s := c.prompt("Título"); s != "" {
 		m.Title = s
 	}
 
-	if s := c.prompt("Sinopse [" + m.Plot + "]"); s != "" {
+	if s := c.prompt("Sinopse"); s != "" {
 		m.Plot = s
 	}
 
-	if s := c.prompt("Gêneros [" + strings.Join(m.Genres, ",") + "]"); s != "" {
+	if s := c.prompt("Sinopse completa"); s != "" {
+		m.Plot = s
+	}
+
+	if s := c.prompt("Gêneros (separados por vírgula)"); s != "" {
 		m.Genres = splitList(s)
 	}
 
-	if s := c.prompt("Elenco [" + strings.Join(m.Cast, ",") + "]"); s != "" {
+	if s := c.prompt("Elenco (separados por vírgula)"); s != "" {
 		m.Cast = splitList(s)
 	}
 
-	if s := c.prompt("Diretores [" + strings.Join(m.Directors, ",") + "]"); s != "" {
+	if s := c.prompt("Diretores (separados por vírgula)"); s != "" {
 		m.Directors = splitList(s)
 	}
 
-	if s := c.prompt("Ano [" + strconv.Itoa(int(m.Year)) + "]"); s != "" {
+	if s := c.prompt("Países (separados por vírgula)"); s != "" {
+		m.Countries = splitList(s)
+	}
+
+	if s := c.prompt("Ano"); s != "" {
 		m.Year = toInt32(s)
+	}
+
+	if s := c.prompt("Duração (min)"); s != "" {
+		m.Runtime = toInt32(s)
+	}
+
+	if s := c.prompt("Classificação"); s != "" {
+		m.Rated = s
 	}
 
 	ctx, cancel = remoteCallCtx()
@@ -221,10 +236,12 @@ func (c *Client) Update() error {
 
 // Handles option 4
 func (c *Client) Get() error {
+	id := c.prompt("ID")
+
 	ctx, cancel := remoteCallCtx()
 	defer cancel()
 
-	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: c.prompt("ID")})
+	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: id})
 
 	if err != nil {
 		return c.handleServerError(err)
@@ -236,10 +253,12 @@ func (c *Client) Get() error {
 
 // Handles option 5
 func (c *Client) ListByActor() error {
+	actor := c.prompt("Nome do ator")
+
 	ctx, cancel := remoteCallCtx()
 	defer cancel()
 
-	stream, err := c.rpc.ListByActor(ctx, &pb.ListByActorRequest{Actor: c.prompt("Nome do ator")})
+	stream, err := c.rpc.ListByActor(ctx, &pb.ListByActorRequest{Actor: actor})
 
 	if err != nil {
 		return c.handleServerError(err)
@@ -250,10 +269,12 @@ func (c *Client) ListByActor() error {
 
 // Handles option 6
 func (c *Client) ListByGenre() error {
+	genre := c.prompt("Categoria")
+
 	ctx, cancel := remoteCallCtx()
 	defer cancel()
 
-	stream, err := c.rpc.ListByGenre(ctx, &pb.ListByGenreRequest{Genre: c.prompt("Categoria")})
+	stream, err := c.rpc.ListByGenre(ctx, &pb.ListByGenreRequest{Genre: genre})
 
 	if err != nil {
 		return c.handleServerError(err)
