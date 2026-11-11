@@ -236,10 +236,12 @@ func (c *Client) Update() error {
 
 // Handles option 4
 func (c *Client) Get() error {
+	id := c.prompt("ID")
+
 	ctx, cancel := remoteCallCtx()
 	defer cancel()
 
-	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: c.prompt("ID")})
+	m, err := c.rpc.GetMovie(ctx, &pb.GetMovieRequest{Id: id})
 
 	if err != nil {
 		return c.handleServerError(err)
